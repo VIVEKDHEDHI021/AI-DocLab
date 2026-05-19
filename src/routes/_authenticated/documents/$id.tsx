@@ -148,54 +148,76 @@ function DocumentPage() {
   const isPdf = doc.file_type === "application/pdf";
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-5 fade-in">
+      {/* Back */}
       <Link
         to="/dashboard"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
-        <ArrowLeft className="h-4 w-4" /> Back
+        <ArrowLeft className="h-4 w-4" /> Back to dashboard
       </Link>
 
-      <div className="rounded-2xl border border-border/60 bg-card p-8 shadow-soft">
+      {/* Header card */}
+      <div className="rounded-2xl border border-white/6 bg-card p-6 md:p-8" style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.3)" }}>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+            <span className="inline-flex items-center rounded-full border border-violet-500/25 bg-violet-500/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-violet-300">
               {doc.category}
-            </div>
-            <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-balance">
+            </span>
+            <h1 className="mt-3 font-display text-2xl font-bold text-white tracking-tight text-balance md:text-3xl">
               {doc.title}
             </h1>
-            <div className="mt-2 text-sm text-muted-foreground">
-              {doc.file_name} · {formatBytes(doc.file_size)} ·{" "}
-              {new Date(doc.created_at).toLocaleDateString()}
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span>{doc.file_name}</span>
+              <span className="opacity-40">·</span>
+              <span>{formatBytes(doc.file_size)}</span>
+              <span className="opacity-40">·</span>
+              <span>{new Date(doc.created_at).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}</span>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" onClick={onReanalyze} disabled={reanalyzing || isProcessing}>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onReanalyze}
+              disabled={reanalyzing || isProcessing}
+              className="h-9 border-white/10 bg-white/5 text-muted-foreground hover:text-foreground hover:bg-white/10 gap-1.5 text-xs"
+            >
               {reanalyzing || isProcessing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <RefreshCw className="mr-2 h-4 w-4" />
+                <RefreshCw className="h-3.5 w-3.5" />
               )}
               Re-analyze
             </Button>
+
             {signedUrl && (
               <a href={signedUrl} target="_blank" rel="noreferrer">
-                <Button variant="outline" size="sm">
-                  <Download className="mr-2 h-4 w-4" /> Download
+                <Button variant="outline" size="sm" className="h-9 border-white/10 bg-white/5 text-muted-foreground hover:text-foreground hover:bg-white/10 gap-1.5 text-xs">
+                  <Download className="h-3.5 w-3.5" /> Open
                 </Button>
               </a>
             )}
-            <Button variant="outline" size="sm" onClick={onDelete} className="text-destructive hover:text-destructive">
-              <Trash2 className="h-4 w-4" />
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onDelete}
+              className="h-9 border-red-500/20 bg-red-500/5 text-red-400 hover:bg-red-500/10 hover:border-red-500/30"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
         </div>
 
         {doc.tags.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-1.5">
+          <div className="mt-5 flex flex-wrap gap-1.5 border-t border-white/5 pt-4">
             {doc.tags.map((t) => (
-              <span key={t} className="rounded-md bg-accent px-2 py-0.5 text-xs text-accent-foreground">
+              <span
+                key={t}
+                className="inline-flex items-center rounded-md border border-white/6 bg-white/4 px-2 py-0.5 text-xs text-muted-foreground"
+              >
                 #{t}
               </span>
             ))}
@@ -203,53 +225,61 @@ function DocumentPage() {
         )}
       </div>
 
-      {/* AI summary */}
-      <div className="rounded-2xl border border-border/60 bg-card p-8 shadow-soft">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <h2 className="font-display text-lg font-semibold">AI Summary</h2>
+      {/* AI Summary */}
+      <div className="rounded-2xl border border-white/6 bg-card p-6 md:p-8" style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.04)" }}>
+        <div className="flex items-center gap-2.5 mb-4">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-primary">
+            <Sparkles className="h-3.5 w-3.5 text-white" />
+          </div>
+          <h2 className="font-display text-base font-semibold text-white">AI Summary</h2>
         </div>
+
         {isProcessing ? (
-          <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> Analyzing your document…
+          <div className="flex items-center gap-2.5 text-sm text-muted-foreground py-2">
+            <Loader2 className="h-4 w-4 animate-spin text-violet-400" />
+            <span>Analyzing your document with AI…</span>
           </div>
         ) : doc.status === "error" ? (
-          <div className="mt-4 flex items-start gap-2 text-sm text-destructive">
-            <AlertCircle className="mt-0.5 h-4 w-4" />
+          <div className="flex items-start gap-2.5 text-sm text-red-400 rounded-xl border border-red-500/20 bg-red-500/5 p-4">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
-              <div className="font-medium">Analysis failed</div>
-              <div className="text-destructive/80">{doc.error_message}</div>
+              <div className="font-semibold mb-0.5">Analysis failed</div>
+              <div className="text-red-400/70 text-xs leading-relaxed">{doc.error_message}</div>
             </div>
           </div>
         ) : (
-          <p className="mt-3 leading-relaxed text-foreground/90">
-            {doc.summary || "No summary available."}
+          <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
+            {doc.summary || "No summary available yet."}
           </p>
         )}
       </div>
 
       {/* Preview */}
       {signedUrl && (
-        <div className="rounded-2xl border border-border/60 bg-card p-2 shadow-soft overflow-hidden">
+        <div
+          className="rounded-2xl border border-white/6 overflow-hidden"
+          style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.04)" }}
+        >
           {doc.drive_file_id ? (
             <iframe
               src={`https://drive.google.com/file/d/${doc.drive_file_id}/preview`}
-              className="h-[600px] w-full rounded-lg border-0"
+              className="h-[65vh] w-full border-0 bg-surface"
               title={doc.title}
               allow="autoplay"
             />
           ) : isImage ? (
-            <img src={signedUrl} alt={doc.title} className="mx-auto max-h-[600px] rounded-lg" />
+            <img src={signedUrl} alt={doc.title} className="mx-auto max-h-[70vh] object-contain bg-surface" />
           ) : isPdf ? (
-            <iframe src={signedUrl} className="h-[600px] w-full rounded-lg" title={doc.title} />
+            <iframe src={signedUrl} className="h-[70vh] w-full border-0 bg-surface" title={doc.title} />
           ) : (
             <a
               href={signedUrl}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center justify-center gap-2 rounded-lg bg-surface p-12 text-sm text-muted-foreground hover:text-foreground"
+              className="flex items-center justify-center gap-2 bg-surface p-16 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              Open file in new tab <ExternalLink className="h-4 w-4" />
+              <ExternalLink className="h-4 w-4" />
+              Open file in new tab
             </a>
           )}
         </div>
@@ -264,3 +294,4 @@ function formatBytes(b: number | null) {
   if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
   return `${(b / 1024 / 1024).toFixed(1)} MB`;
 }
+

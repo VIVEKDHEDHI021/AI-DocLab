@@ -4,13 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  FileText,
-  Search,
-  Upload,
-  Sparkles,
-  AlertCircle,
-  Loader2,
-  Folder,
+  FileText, Search, Upload, Sparkles, AlertCircle, Loader2,
+  Folder, Plus, CreditCard, HeartPulse, Briefcase, FileCheck,
+  GraduationCap, Home, Car, ShoppingBag,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -30,6 +26,26 @@ type Doc = {
   status: string;
   created_at: string;
 };
+
+const CATEGORY_META: Record<string, { icon: any; color: string; gradient: string; glow: string }> = {
+  "Personal ID": { icon: CreditCard, color: "text-violet-400", gradient: "from-violet-500 to-purple-600", glow: "rgba(139,92,246,0.25)" },
+  "Finance":     { icon: Briefcase, color: "text-emerald-400", gradient: "from-emerald-500 to-teal-600", glow: "rgba(16,185,129,0.25)" },
+  "Medical":     { icon: HeartPulse, color: "text-rose-400",  gradient: "from-rose-500 to-pink-600",    glow: "rgba(244,63,94,0.25)" },
+  "Education":   { icon: GraduationCap, color: "text-amber-400", gradient: "from-amber-500 to-orange-500", glow: "rgba(245,158,11,0.25)" },
+  "Legal":       { icon: FileCheck, color: "text-blue-400",   gradient: "from-blue-500 to-indigo-600",  glow: "rgba(59,130,246,0.25)" },
+  "Property":    { icon: Home, color: "text-orange-400",      gradient: "from-orange-500 to-amber-600", glow: "rgba(249,115,22,0.25)" },
+  "Vehicle":     { icon: Car, color: "text-cyan-400",         gradient: "from-cyan-500 to-sky-600",     glow: "rgba(6,182,212,0.25)" },
+  "Shopping":    { icon: ShoppingBag, color: "text-pink-400", gradient: "from-pink-500 to-fuchsia-600", glow: "rgba(236,72,153,0.25)" },
+};
+
+function getCatMeta(cat: string) {
+  return CATEGORY_META[cat] ?? {
+    icon: Folder,
+    color: "text-muted-foreground",
+    gradient: "from-slate-500 to-slate-600",
+    glow: "rgba(100,116,139,0.2)",
+  };
+}
 
 function Dashboard() {
   const [docs, setDocs] = useState<Doc[]>([]);
@@ -53,16 +69,9 @@ function Dashboard() {
 
     const channel = supabase
       .channel("documents_changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "documents" },
-        () => load(),
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "documents" }, () => load())
       .subscribe();
-    return () => {
-      active = false;
-      supabase.removeChannel(channel);
-    };
+    return () => { active = false; supabase.removeChannel(channel); };
   }, []);
 
   const categories = useMemo(() => {
@@ -86,87 +95,118 @@ function Dashboard() {
     });
   }, [docs, query, activeCategory]);
 
+  const groupedFiltered = useMemo(() => {
+    if (activeCategory) {
+      const catDocs = filtered.filter((d) => d.category === activeCategory);
+      return catDocs.length > 0 ? [[activeCategory, catDocs] as [string, Doc[]]] : [];
+    }
+    return categories
+      .map(([cat]) => [cat, filtered.filter((d) => d.category === cat)] as [string, Doc[]])
+      .filter(([, docs]) => docs.length > 0);
+  }, [categories, filtered, activeCategory]);
+
+  const readyCount = docs.filter((d) => d.status === "ready").length;
+
   return (
-    <div className="space-y-10">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="space-y-8">
+      {/* Page header */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-4xl font-bold tracking-tight">Your Vault</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {docs.length} document{docs.length === 1 ? "" : "s"} · AI-organized
+          <h1 className="font-display text-3xl font-bold text-white md:text-4xl">Your Vault</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            {docs.length} document{docs.length !== 1 ? "s" : ""} ·{" "}
+            <span className="text-emerald-400">{readyCount} analyzed</span>
           </p>
         </div>
         <Link to="/upload">
-          <Button className="bg-gradient-primary text-primary-foreground shadow-glow">
-            <Upload className="mr-2 h-4 w-4" /> Upload
+          <Button className="bg-gradient-primary text-white shadow-glow-sm hover:opacity-90 transition-opacity h-10 gap-2 font-medium">
+            <Plus className="h-4 w-4" /> Upload
           </Button>
         </Link>
       </div>
 
+      {/* Search */}
       <div className="relative max-w-2xl">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <Input
-          placeholder="Search by content, tag, vendor, category…"
+          id="vault-search"
+          placeholder="Search documents, tags, content…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="h-12 pl-10 text-base"
+          className="h-11 pl-10 bg-surface border-white/8 text-foreground placeholder:text-muted-foreground/60 focus-visible:ring-violet-500/50 rounded-xl text-sm"
         />
       </div>
 
+      {/* Category filter chips */}
       {categories.length > 0 && (
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setActiveCategory(null)}
-            className={`rounded-full border px-4 py-1.5 text-sm transition ${
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs font-medium transition-all ${
               activeCategory === null
-                ? "border-primary bg-primary text-primary-foreground shadow-soft"
-                : "border-border bg-surface text-muted-foreground hover:text-foreground"
+                ? "border-violet-500/50 bg-violet-500/15 text-violet-300"
+                : "border-white/8 bg-white/4 text-muted-foreground hover:border-white/15 hover:text-foreground"
             }`}
           >
-            All ({docs.length})
+            All <span className="opacity-60">({docs.length})</span>
           </button>
-          {categories.map(([cat, count]) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat === activeCategory ? null : cat)}
-              className={`rounded-full border px-4 py-1.5 text-sm transition ${
-                activeCategory === cat
-                  ? "border-primary bg-primary text-primary-foreground shadow-soft"
-                  : "border-border bg-surface text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Folder className="mr-2 inline h-4 w-4" />
-              {cat} ({count})
-            </button>
-          ))}
+          {categories.map(([cat, count]) => {
+            const meta = getCatMeta(cat);
+            const CatIcon = meta.icon;
+            return (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(cat === activeCategory ? null : cat)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1 text-xs font-medium transition-all ${
+                  activeCategory === cat
+                    ? "border-violet-500/50 bg-violet-500/15 text-violet-300"
+                    : "border-white/8 bg-white/4 text-muted-foreground hover:border-white/15 hover:text-foreground"
+                }`}
+              >
+                <CatIcon className={`h-3 w-3 ${meta.color}`} />
+                {cat} <span className="opacity-60">({count})</span>
+              </button>
+            );
+          })}
         </div>
       )}
 
+      {/* Content */}
       {loading ? (
-        <div className="flex justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <div className="flex flex-col items-center justify-center py-24 gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-violet-400" />
+          <p className="text-sm text-muted-foreground">Loading your vault…</p>
         </div>
       ) : filtered.length === 0 ? (
         <EmptyState hasDocs={docs.length > 0} />
       ) : (
-        <div className="space-y-12">
-          {categories.map(([cat]) => {
-            const catDocs = filtered.filter((d) => d.category === cat);
-            if (catDocs.length === 0) return null;
+        <div className="space-y-10">
+          {groupedFiltered.map(([cat, catDocs]) => {
+            const meta = getCatMeta(cat);
+            const CatIcon = meta.icon;
             return (
-              <div key={cat} className="space-y-6">
-                <div className="flex items-center gap-2 border-b border-border/60 pb-3">
-                  <Folder className="h-5 w-5 text-primary" />
-                  <h2 className="font-display text-xl font-bold tracking-tight text-foreground">{cat}</h2>
-                  <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-muted-foreground font-semibold">
+              <section key={cat} className="space-y-4">
+                {/* Category header */}
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br ${meta.gradient}`}
+                    style={{ boxShadow: `0 0 12px -2px ${meta.glow}` }}
+                  >
+                    <CatIcon className="h-4 w-4 text-white" />
+                  </div>
+                  <h2 className="font-display text-lg font-semibold text-white">{cat}</h2>
+                  <span className="rounded-full bg-white/5 border border-white/8 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                     {catDocs.length}
                   </span>
                 </div>
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+
+                {/* Doc cards grid */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {catDocs.map((d) => (
-                    <DocCard key={d.id} doc={d} />
+                    <DocCard key={d.id} doc={d} meta={meta} />
                   ))}
                 </div>
-              </div>
+              </section>
             );
           })}
         </div>
@@ -175,40 +215,71 @@ function Dashboard() {
   );
 }
 
-function DocCard({ doc }: { doc: Doc }) {
+function DocCard({ doc, meta }: { doc: Doc; meta: ReturnType<typeof getCatMeta> }) {
   return (
     <Link
       to="/documents/$id"
       params={{ id: doc.id }}
-      className="group rounded-xl border border-border/60 bg-card p-5 shadow-soft transition hover:border-primary/40 hover:shadow-glow"
+      className="group relative flex flex-col rounded-2xl border border-white/6 bg-card p-5 transition-all duration-200 hover:-translate-y-0.5 overflow-hidden"
+      style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.04)" }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLElement).style.boxShadow = `0 0 24px -4px ${meta.glow}, 0 0 0 1px rgba(255,255,255,0.08)`;
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.boxShadow = "0 0 0 1px rgba(255,255,255,0.04)";
+      }}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="text-[10px] font-semibold uppercase tracking-wider text-primary">
-          {doc.category}
+      {/* Subtle gradient background overlay */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+        style={{
+          background: `radial-gradient(ellipse at top right, ${meta.glow}, transparent 70%)`,
+        }}
+      />
+
+      <div className="relative flex items-center justify-between">
+        <div
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${meta.gradient} transition-transform group-hover:scale-105`}
+        >
+          <FileText className="h-3.5 w-3.5 text-white" />
         </div>
         <StatusPill status={doc.status} />
       </div>
-      <div className="mt-3 flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-primary group-hover:bg-gradient-primary group-hover:text-primary-foreground">
-          <FileText className="h-4 w-4" />
-        </div>
-        <div className="min-w-0">
-          <div className="truncate font-display font-semibold leading-tight">{doc.title}</div>
-          <div className="truncate text-xs text-muted-foreground">{doc.file_name}</div>
-        </div>
+
+      <div className="relative mt-3 min-w-0 flex-1">
+        <p className="truncate font-display text-sm font-semibold text-white leading-snug">
+          {doc.title}
+        </p>
+        <p className="truncate text-[11px] text-muted-foreground mt-0.5">{doc.file_name}</p>
       </div>
+
       {doc.summary && (
-        <p className="mt-3 line-clamp-3 text-sm text-muted-foreground">{doc.summary}</p>
+        <p className="relative mt-2.5 line-clamp-2 text-xs text-muted-foreground leading-relaxed">
+          {doc.summary}
+        </p>
       )}
+
       {doc.tags.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-1">
-          {doc.tags.slice(0, 4).map((t) => (
-            <span key={t} className="rounded-md bg-accent px-1.5 py-0.5 text-[10px] text-accent-foreground">
+        <div className="relative mt-3 flex flex-wrap gap-1">
+          {doc.tags.slice(0, 3).map((t) => (
+            <span
+              key={t}
+              className="rounded-md border border-white/6 bg-white/4 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+            >
               #{t}
             </span>
           ))}
+          {doc.tags.length > 3 && (
+            <span className="rounded-md border border-white/6 bg-white/4 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              +{doc.tags.length - 3}
+            </span>
+          )}
         </div>
       )}
+
+      <p className="relative mt-3 text-[10px] text-muted-foreground/50">
+        {new Date(doc.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+      </p>
     </Link>
   );
 }
@@ -216,41 +287,43 @@ function DocCard({ doc }: { doc: Doc }) {
 function StatusPill({ status }: { status: string }) {
   if (status === "processing" || status === "pending") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-[10px] text-muted-foreground">
-        <Loader2 className="h-3 w-3 animate-spin" /> Analyzing
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-medium text-amber-400">
+        <Loader2 className="h-2.5 w-2.5 animate-spin" /> Analyzing
       </span>
     );
   }
   if (status === "error") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] text-destructive">
-        <AlertCircle className="h-3 w-3" /> Failed
+      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 border border-red-500/20 px-2 py-0.5 text-[10px] font-medium text-red-400">
+        <AlertCircle className="h-2.5 w-2.5" /> Failed
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] text-success">
-      <Sparkles className="h-3 w-3" /> Ready
+    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+      <Sparkles className="h-2.5 w-2.5" /> Ready
     </span>
   );
 }
 
 function EmptyState({ hasDocs }: { hasDocs: boolean }) {
   return (
-    <div className="rounded-2xl border border-dashed border-border/80 bg-surface py-20 text-center">
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent text-primary">
-        <FileText className="h-6 w-6" />
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/8 bg-surface/50 py-24 text-center px-6">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-primary shadow-glow mb-5">
+        <FileText className="h-7 w-7 text-white" />
       </div>
-      <h3 className="mt-4 font-display text-lg font-semibold">
+      <h3 className="font-display text-xl font-semibold text-white">
         {hasDocs ? "No matching documents" : "Your vault is empty"}
       </h3>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {hasDocs ? "Try a different search or category." : "Upload your first document to get started."}
+      <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+        {hasDocs
+          ? "Try adjusting your search or category filter."
+          : "Upload your first document to get started. AI will automatically organize and extract key information."}
       </p>
       {!hasDocs && (
-        <Link to="/upload">
-          <Button className="mt-6 bg-gradient-primary text-primary-foreground shadow-glow">
-            <Upload className="mr-2 h-4 w-4" /> Upload a document
+        <Link to="/upload" className="mt-8">
+          <Button className="bg-gradient-primary text-white shadow-glow hover:opacity-90 transition-opacity gap-2 font-semibold h-11 px-7">
+            <Upload className="h-4 w-4" /> Upload your first document
           </Button>
         </Link>
       )}
