@@ -30,3 +30,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Icon generation (source + script — generated outputs in public/ are tracked)
+src-icon.png
+generate-icons.mjs
