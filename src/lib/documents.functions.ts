@@ -59,6 +59,8 @@ export const processDocument = createServerFn({ method: "POST" })
       .eq("id", doc.id);
 
     try {
+      if (!doc.file_path) throw new Error("Document has no file path");
+
       // Fetch file content
       const { data: fileBlob, error: dlErr } = await supabase.storage
         .from("documents")
@@ -75,7 +77,17 @@ export const processDocument = createServerFn({ method: "POST" })
         /\.(txt|md|csv|json|log)$/i.test(doc.file_name);
 
       let userContent: any[] = [];
-      const baseInstruction = `You are an AI document analyst. Analyze the document and produce: (1) a clear short title, (2) a concise 2-3 sentence summary, (3) the most fitting category from this list: ${CATEGORIES.join(", ")}, and (4) 3-6 lowercase tags. Be specific and accurate.`;
+      const baseInstruction = `You are an AI document analyst. Analyze the document and produce: (1) a clear short title, (2) a concise 2-3 sentence summary, (3) the most fitting category from this list: ${CATEGORIES.join(", ")}, and (4) 3-6 lowercase tags. Be specific and accurate.
+
+TITLE FORMATTING RULE FOR PERSONAL DOCUMENTS:
+If this document is a personal document (such as a personal ID, certificate, card, or account document belonging to a specific individual, e.g. Aadhar, PAN, passport, mark sheet, bank passbook), you MUST identify the person's name (e.g., Vivek) and the type of document (e.g., Aadhar). 
+Format the title using lowercase kebab-case as "personname-documentname" (for example, "vivek-aadhar", "vivek-pan", "smit-marksheet"). If the individual's name is not found, default to a standard short descriptive title.
+
+Additionally, you MUST look for and extract any of the following if present in the document:
+- Aadhar Card Numbers (12-digit number, often formatted as XXXX XXXX XXXX or XXXX-XXXX-XXXX)
+- PAN Card Numbers (10-character alphanumeric, often formatted as 5 letters, 4 digits, 1 letter, e.g., ABCDE1234F)
+- Bank Account Numbers and IFC/routing codes.
+If any of these are found, extract and format them clearly (e.g. "Aadhar Card: 1234 5678 9012" or "PAN Card: ABCDE1234F").`;
 
       if (isText) {
         const textRaw = await fileBlob.text();
@@ -114,7 +126,7 @@ export const processDocument = createServerFn({ method: "POST" })
               parameters: {
                 type: "object",
                 properties: {
-                  title: { type: "string", description: "Short descriptive title (max 80 chars)." },
+                  title: { type: "string", description: "Short descriptive title (max 80 chars). Use the lowercase kebab-case format 'name-doctype' for personal documents if a person name is identified." },
                   summary: { type: "string", description: "2-3 sentence summary." },
                   category: { type: "string", enum: CATEGORIES as unknown as string[] },
                   tags: {
@@ -123,8 +135,13 @@ export const processDocument = createServerFn({ method: "POST" })
                     minItems: 2,
                     maxItems: 6,
                   },
+                  extracted_numbers: {
+                    type: "array",
+                    description: "Any extracted identity numbers like Aadhar, PAN, or Bank Account numbers. Leave empty if none found.",
+                    items: { type: "string" },
+                  },
                 },
-                required: ["title", "summary", "category", "tags"],
+                required: ["title", "summary", "category", "tags", "extracted_numbers"],
                 additionalProperties: false,
               },
             },
@@ -140,17 +157,23 @@ export const processDocument = createServerFn({ method: "POST" })
         summary: string;
         category: string;
         tags: string[];
+        extracted_numbers?: string[];
       };
 
       const safeCategory = (CATEGORIES as readonly string[]).includes(parsed.category)
         ? parsed.category
         : "Other";
 
+      let finalSummary = parsed.summary;
+      if (parsed.extracted_numbers && parsed.extracted_numbers.length > 0) {
+        finalSummary += "\n\nExtracted Details:\n" + parsed.extracted_numbers.map(n => `• ${n}`).join("\n");
+      }
+
       await supabase
         .from("documents")
         .update({
           title: parsed.title.slice(0, 200),
-          summary: parsed.summary,
+          summary: finalSummary,
           category: safeCategory,
           tags: parsed.tags.map((t) => t.toLowerCase()).slice(0, 6),
           status: "ready",
@@ -166,4 +189,46 @@ export const processDocument = createServerFn({ method: "POST" })
         .eq("id", doc.id);
       throw err;
     }
+  });
+
+export const askVault = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ question: z.string() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { question } = data;
+
+    const { data: docs, error } = await supabase
+      .from("documents")
+      .select("title, category, summary, tags")
+      .eq("user_id", userId)
+      .eq("status", "ready");
+
+    if (error) throw new Error("Could not retrieve documents");
+
+    if (!docs || docs.length === 0) {
+      return { answer: "You don't have any documents in your Vault yet. Please upload some documents first so I can help answer your questions!" };
+    }
+
+    const docsContext = docs.map(d => {
+      return `Document Title: ${d.title}\nCategory: ${d.category}\nSummary: ${d.summary}\nTags: ${d.tags.join(", ")}`;
+    }).join("\n\n---\n\n");
+
+    const systemInstruction = `You are "Vault AI", the user's personal secure document assistant. You have secure access to the user's documents summarized below. 
+Your task is to answer the user's question accurately based ONLY on the provided document summaries.
+If the user asks for a document number (like Aadhar, PAN, or Bank Account), look closely at the document summaries (the user has specifically had these extracted into the summaries under "Extracted Details").
+Be extremely direct, concise, and helpful. If the user asks for a number, give them the exact number immediately.
+If the answer cannot be found in the document summaries, politely inform them of that fact (e.g. "I couldn't find that details in your current Vault documents.").
+
+--- USER'S DOCUMENTS CONTEXT ---
+${docsContext}
+`;
+
+    const result = await callAI([
+      { role: "system", content: systemInstruction },
+      { role: "user", content: question }
+    ]);
+
+    const answer = result.choices?.[0]?.message?.content || "Sorry, I couldn't generate an answer.";
+    return { answer };
   });

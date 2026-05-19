@@ -1,7 +1,12 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tanstack-start-app",
+  "name": "vault-app",
   "compatibility_date": "2025-09-24",
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/server.ts",
+  "vars": {
+    "SUPABASE_URL": "https://jxyblghjjdiabuglkdwe.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp4eWJsZ2hqamRpYWJ1Z2xrZHdlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4MDA2NjYsImV4cCI6MjA5NDM3NjY2Nn0.R4ogNYmWji6ACEZkGRZrNI-VjWQGP103lGL58fxc_Ds",
+    "GEMINI_API_KEY": "AIzaSyC445ttYKA0ZXuc-LmGu3-KeLgTJfn29XA"
+  }
 }

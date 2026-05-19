@@ -64,7 +64,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=5" },
       { title: "Vault — AI Document Wallet" },
       { name: "description", content: "Securely store, summarize, and search every document with AI." },
       { property: "og:title", content: "Vault — AI Document Wallet" },

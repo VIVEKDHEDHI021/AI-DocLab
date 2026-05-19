@@ -61,10 +61,12 @@ function DocumentPage() {
         return;
       }
       setDoc(data as Doc);
-      const { data: signed } = await supabase.storage
-        .from("documents")
-        .createSignedUrl(data.file_path, 3600);
-      if (active) setSignedUrl(signed?.signedUrl ?? null);
+      if (data.file_path) {
+        const { data: signed } = await supabase.storage
+          .from("documents")
+          .createSignedUrl(data.file_path, 3600);
+        if (active) setSignedUrl(signed?.signedUrl ?? null);
+      }
       setLoading(false);
     };
     load();

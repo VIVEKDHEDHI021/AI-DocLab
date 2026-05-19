@@ -87,11 +87,11 @@ function Dashboard() {
   }, [docs, query, activeCategory]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Your Vault</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="font-display text-4xl font-bold tracking-tight">Your Vault</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
             {docs.length} document{docs.length === 1 ? "" : "s"} · AI-organized
           </p>
         </div>
@@ -102,13 +102,13 @@ function Dashboard() {
         </Link>
       </div>
 
-      <div className="relative">
+      <div className="relative max-w-2xl">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Search by content, tag, vendor, category…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="h-11 pl-9"
+          className="h-12 pl-10 text-base"
         />
       </div>
 
@@ -116,9 +116,9 @@ function Dashboard() {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setActiveCategory(null)}
-            className={`rounded-full border px-3 py-1 text-xs transition ${
+            className={`rounded-full border px-4 py-1.5 text-sm transition ${
               activeCategory === null
-                ? "border-primary bg-primary text-primary-foreground"
+                ? "border-primary bg-primary text-primary-foreground shadow-soft"
                 : "border-border bg-surface text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -128,13 +128,13 @@ function Dashboard() {
             <button
               key={cat}
               onClick={() => setActiveCategory(cat === activeCategory ? null : cat)}
-              className={`rounded-full border px-3 py-1 text-xs transition ${
+              className={`rounded-full border px-4 py-1.5 text-sm transition ${
                 activeCategory === cat
-                  ? "border-primary bg-primary text-primary-foreground"
+                  ? "border-primary bg-primary text-primary-foreground shadow-soft"
                   : "border-border bg-surface text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Folder className="mr-1 inline h-3 w-3" />
+              <Folder className="mr-2 inline h-4 w-4" />
               {cat} ({count})
             </button>
           ))}
@@ -148,10 +148,27 @@ function Dashboard() {
       ) : filtered.length === 0 ? (
         <EmptyState hasDocs={docs.length > 0} />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((d) => (
-            <DocCard key={d.id} doc={d} />
-          ))}
+        <div className="space-y-12">
+          {categories.map(([cat]) => {
+            const catDocs = filtered.filter((d) => d.category === cat);
+            if (catDocs.length === 0) return null;
+            return (
+              <div key={cat} className="space-y-6">
+                <div className="flex items-center gap-2 border-b border-border/60 pb-3">
+                  <Folder className="h-5 w-5 text-primary" />
+                  <h2 className="font-display text-xl font-bold tracking-tight text-foreground">{cat}</h2>
+                  <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-muted-foreground font-semibold">
+                    {catDocs.length}
+                  </span>
+                </div>
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {catDocs.map((d) => (
+                    <DocCard key={d.id} doc={d} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

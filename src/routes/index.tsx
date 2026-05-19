@@ -1,8 +1,15 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { ArrowRight, FileSearch, Sparkles, Lock, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")(({
+  beforeLoad: async () => {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      throw redirect({ to: "/dashboard" });
+    }
+  },
   component: Landing,
   head: () => ({
     meta: [
