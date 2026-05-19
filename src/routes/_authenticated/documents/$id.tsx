@@ -29,12 +29,14 @@ type Doc = {
   summary: string | null;
   description: string | null;
   file_name: string;
-  file_path: string;
+  file_path: string | null;
   file_type: string | null;
   file_size: number | null;
   status: string;
   error_message: string | null;
   created_at: string;
+  drive_file_id: string | null;
+  drive_webview_link: string | null;
 };
 
 function DocumentPage() {
@@ -61,7 +63,9 @@ function DocumentPage() {
         return;
       }
       setDoc(data as Doc);
-      if (data.file_path) {
+      if (data.drive_webview_link) {
+        setSignedUrl(data.drive_webview_link);
+      } else if (data.file_path) {
         const { data: signed } = await supabase.storage
           .from("documents")
           .createSignedUrl(data.file_path, 3600);
@@ -88,7 +92,21 @@ function DocumentPage() {
   const onDelete = async () => {
     if (!doc) return;
     if (!confirm("Delete this document?")) return;
-    await supabase.storage.from("documents").remove([doc.file_path]);
+    
+    const token = localStorage.getItem("gdrive_access_token");
+    if (doc.drive_file_id && token) {
+      try {
+        await fetch(`https://www.googleapis.com/drive/v3/files/${doc.drive_file_id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } catch (e) {
+        console.error("Failed to delete file from Google Drive:", e);
+      }
+    } else if (doc.file_path) {
+      await supabase.storage.from("documents").remove([doc.file_path]);
+    }
+
     const { error } = await supabase.from("documents").delete().eq("id", doc.id);
     if (error) return toast.error(error.message);
     toast.success("Deleted");
@@ -99,7 +117,13 @@ function DocumentPage() {
     if (!doc) return;
     setReanalyzing(true);
     try {
-      await processFn({ data: { documentId: doc.id } });
+      const token = localStorage.getItem("gdrive_access_token") || undefined;
+      await processFn({
+        data: {
+          documentId: doc.id,
+          googleAccessToken: token,
+        },
+      });
       toast.success("Re-analyzed");
     } catch (e: any) {
       toast.error(e.message ?? "Failed");
@@ -206,8 +230,15 @@ function DocumentPage() {
 
       {/* Preview */}
       {signedUrl && (
-        <div className="rounded-2xl border border-border/60 bg-card p-2 shadow-soft">
-          {isImage ? (
+        <div className="rounded-2xl border border-border/60 bg-card p-2 shadow-soft overflow-hidden">
+          {doc.drive_file_id ? (
+            <iframe
+              src={`https://drive.google.com/file/d/${doc.drive_file_id}/preview`}
+              className="h-[600px] w-full rounded-lg border-0"
+              title={doc.title}
+              allow="autoplay"
+            />
+          ) : isImage ? (
             <img src={signedUrl} alt={doc.title} className="mx-auto max-h-[600px] rounded-lg" />
           ) : isPdf ? (
             <iframe src={signedUrl} className="h-[600px] w-full rounded-lg" title={doc.title} />

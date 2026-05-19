@@ -41,7 +41,14 @@ async function callAI(messages: any[], tools?: any[], tool_choice?: any) {
 
 export const processDocument = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ documentId: z.string().uuid() }).parse(d))
+  .inputValidator((d) =>
+    z
+      .object({
+        documentId: z.string().uuid(),
+        googleAccessToken: z.string().optional(),
+      })
+      .parse(d),
+  )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
@@ -59,13 +66,33 @@ export const processDocument = createServerFn({ method: "POST" })
       .eq("id", doc.id);
 
     try {
-      if (!doc.file_path) throw new Error("Document has no file path");
+      let fileBlob: Blob;
 
-      // Fetch file content
-      const { data: fileBlob, error: dlErr } = await supabase.storage
-        .from("documents")
-        .download(doc.file_path);
-      if (dlErr || !fileBlob) throw new Error("Could not download file");
+      if (doc.drive_file_id) {
+        if (!data.googleAccessToken) {
+          throw new Error("Google access token required to process Drive file");
+        }
+        const response = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${doc.drive_file_id}?alt=media`,
+          {
+            headers: {
+              Authorization: `Bearer ${data.googleAccessToken}`,
+            },
+          },
+        );
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(`Failed to download from Google Drive: ${response.statusText} (${errText})`);
+        }
+        fileBlob = await response.blob();
+      } else {
+        if (!doc.file_path) throw new Error("Document has no file path");
+        const { data: dlBlob, error: dlErr } = await supabase.storage
+          .from("documents")
+          .download(doc.file_path);
+        if (dlErr || !dlBlob) throw new Error("Could not download file from storage");
+        fileBlob = dlBlob;
+      }
 
       const fileType = (doc.file_type || "").toLowerCase();
       const isImage = fileType.startsWith("image/");
